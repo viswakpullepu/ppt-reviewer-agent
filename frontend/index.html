@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT Reviewer Agent</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 10px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        h1 { color: #333; margin-bottom: 10px; text-align: center; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 40px; font-size: 14px; }
+        .upload-area { border: 3px dashed #667eea; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .upload-area:hover { border-color: #764ba2; background: #f8f9ff; }
+        .upload-area.dragover { border-color: #764ba2; background: #f0f1ff; }
+        .upload-icon { font-size: 48px; margin-bottom: 20px; }
+        .upload-text { color: #666; margin-bottom: 10px; }
+        .upload-hint { color: #999; font-size: 14px; }
+        input[type="file"] { display: none; }
+        .btn-upload { background: #667eea; color: white; border: none; padding: 12px 30px; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 20px; transition: background 0.3s; }
+        .btn-upload:hover { background: #764ba2; }
+        .progress { margin-top: 20px; display: none; }
+        .progress-bar { width: 100%; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #667eea; width: 0%; transition: width 0.3s; }
+        .result { margin-top: 30px; display: none; padding: 20px; background: #f0f9ff; border-left: 4px solid #667eea; border-radius: 5px; }
+        .result.error { background: #fff0f0; border-left-color: #e74c3c; }
+        .result h3 { color: #333; margin-bottom: 10px; }
+        .result p { color: #666; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 PPT Reviewer Agent</h1>
+        <p class="subtitle">AI-Powered PowerPoint Analysis</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📄</div>
+            <p class="upload-text">Drag and drop your PowerPoint file here</p>
+            <p class="upload-hint">or click to browse (.pptx, .ppt)</p>
+            <input type="file" id="fileInput" accept=".pptx,.ppt" />
+            <button class="btn-upload" onclick="document.getElementById('fileInput').click()">Choose File</button>
+        </div>
+        
+        <div class="progress" id="progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p style="text-align: center; margin-top: 10px; color: #666;">Analyzing presentation...</p>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const progressDiv = document.getElementById('progress');
+        const resultDiv = document.getElementById('result');
+        const progressFill = document.getElementById('progressFill');
+        
+        const API_URL = 'http://localhost:8000';
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        
+        uploadArea.addEventListener('dragover', () => uploadArea.classList.add('dragover'));
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', (e) => {
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) handleFile(files[0]);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) handleFile(e.target.files[0]);
+        });
+        
+        async function handleFile(file) {
+            if (!file.name.endsWith('.pptx') && !file.name.endsWith('.ppt')) {
+                showError('Please upload a PowerPoint file (.pptx or .ppt)');
+                return;
+            }
+            
+            progressDiv.style.display = 'block';
+            resultDiv.style.display = 'none';
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch(`${API_URL}/api/analyze`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) throw new Error('Analysis failed');
+                
+                const data = await response.json();
+                showResult(`<h3>✅ Analysis Complete!</h3><p><strong>File:</strong> ${file.name}<br/><strong>Status:</strong> ${data.status}<br/><strong>Message:</strong> ${data.message}</p>`);
+            } catch (error) {
+                showError(`Error: ${error.message}`);
+            } finally {
+                progressDiv.style.display = 'none';
+            }
+        }
+        
+        function showResult(html) {
+            resultDiv.classList.remove('error');
+            resultDiv.innerHTML = html;
+            resultDiv.style.display = 'block';
+        }
+        
+        function showError(message) {
+            resultDiv.classList.add('error');
+            resultDiv.innerHTML = `<h3>❌ Error</h3><p>${message}</p>`;
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
