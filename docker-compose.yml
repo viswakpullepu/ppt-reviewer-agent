@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ppt-reviewer-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MAX_FILE_SIZE_MB=50
+      - LOG_LEVEL=INFO
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      - ./backend:/app/backend
+      - /tmp/ppt_uploads:/tmp/ppt_uploads
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - ppt-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ppt-reviewer-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ppt-network
+    restart: unless-stopped
+
+  frontend:
+    image: node:18-alpine
+    container_name: ppt-reviewer-frontend
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    command: sh -c "cd /app && npx serve . -l 3000"
+    networks:
+      - ppt-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  ppt-network:
+    driver: bridge
+
+volumes:
+  ppt_uploads:
